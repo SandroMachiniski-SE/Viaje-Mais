@@ -10,6 +10,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
 const pontos_routes_1 = __importDefault(require("./routes/pontos.routes"));
+const roteiros_routes_1 = __importDefault(require("./routes/roteiros.routes"));
 const app = (0, express_1.default)();
 const port = Number(process.env.PORT) || 3333;
 app.use((0, helmet_1.default)());
@@ -28,6 +29,7 @@ app.get("/health", (_req, res) => {
     });
 });
 app.use("/pontos", pontos_routes_1.default);
+app.use("/roteiros", roteiros_routes_1.default);
 app.use((_req, res) => {
     res.status(404).json({
         erro: "Rota não encontrada.",
