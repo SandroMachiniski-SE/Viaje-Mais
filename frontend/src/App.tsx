@@ -5,6 +5,7 @@ import NaoEncontrado from "./pages/NaoEncontrado";
 import PontoDetalhes from "./pages/PontoDetalhes";
 import Roteiros from "./pages/Roteiros";
 import RoteiroDetalhes from "./pages/RoteiroDetalhes";
+import NovoRoteiro from "./pages/NovoRoteiro";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/pontos/:id" element={<PontoDetalhes />} />
         <Route path="/roteiros" element={<Roteiros />} />
         <Route path="/roteiros/:id" element={<RoteiroDetalhes />} />
+        <Route path="/roteiros/novo" element={<NovoRoteiro />} />
       </Route>
 
       <Route path="*" element={<NaoEncontrado />} />

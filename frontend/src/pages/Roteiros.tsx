@@ -36,6 +36,20 @@ function Roteiros() {
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1rem" }}>
       <h1>Meus roteiros</h1>
       <p>Seus roteiros personalizados aparecerao aqui.</p>
+      <Link
+  to="/roteiros/novo"
+  style={{
+    display: "inline-block",
+    marginBottom: "1rem",
+    padding: "0.5rem 1rem",
+    borderRadius: 6,
+    backgroundColor: "#2563eb",
+    color: "#fff",
+    textDecoration: "none",
+  }}
+>
+  + Novo roteiro
+</Link>
 
       {carregando && <p>Carregando roteiros...</p>}
 
