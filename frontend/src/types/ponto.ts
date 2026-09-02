@@ -1,14 +1,14 @@
-export interface Ponto {
+﻿export interface Ponto {
   id: number;
   nome: string;
-  descricao: string;
+  descricao: string | null;
   categoria: string;
   cidade: string;
-  endereco: string;
-  latitude: number;
-  longitude: number;
-  faixaPreco: string;
-  acessibilidade: string;
+  endereco: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  faixaPreco: string | null;
+  acessibilidade: string | null;
   siteOficial: string | null;
   telefoneContato: string | null;
   status: string;
