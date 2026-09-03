@@ -1,8 +1,29 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState, type SyntheticEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../services/api";
 import type { Roteiro } from "../types/roteiro";
 import type { Ponto, RespostaPontos } from "../types/ponto";
+import "./RoteiroDetalhes.css";
+
+interface ErroApi {
+  response?: {
+    data?: {
+      erro?: string;
+    };
+  };
+}
+
+function extrairMensagemErro(err: unknown, mensagemPadrao: string): string {
+  if (typeof err === "object" && err !== null && "response" in err) {
+    const possivelErro = err as ErroApi;
+
+    if (typeof possivelErro.response?.data?.erro === "string") {
+      return possivelErro.response.data.erro;
+    }
+  }
+
+  return mensagemPadrao;
+}
 
 function RoteiroDetalhes() {
   const { id } = useParams();
@@ -18,7 +39,9 @@ function RoteiroDetalhes() {
   const [enviandoPonto, setEnviandoPonto] = useState(false);
   const [erroPonto, setErroPonto] = useState<string | null>(null);
 
-  async function buscarRoteiro() {
+  const [removendoId, setRemovendoId] = useState<number | null>(null);
+
+  const buscarRoteiro = useCallback(async () => {
     try {
       setCarregando(true);
       setErro(null);
@@ -33,23 +56,24 @@ function RoteiroDetalhes() {
     } finally {
       setCarregando(false);
     }
-  }
+  }, [id]);
 
-  async function buscarPontos() {
+  const buscarPontos = useCallback(async () => {
     try {
       const resposta = await api.get<RespostaPontos>("/pontos");
       setPontosDisponiveis(resposta.data.dados);
     } catch (err) {
       console.error(err);
     }
-  }
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial ao montar o componente, padrao recomendado pelo React
     buscarRoteiro();
     buscarPontos();
-  }, [id]);
+  }, [buscarRoteiro, buscarPontos]);
 
-  async function aoAdicionarPonto(evento: React.FormEvent) {
+  async function aoAdicionarPonto(evento: SyntheticEvent<HTMLFormElement>) {
     evento.preventDefault();
     setErroPonto(null);
 
@@ -79,19 +103,13 @@ function RoteiroDetalhes() {
       setObservacao("");
 
       await buscarRoteiro();
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(err);
 
-      let mensagem = "Nao foi possivel adicionar este ponto ao roteiro.";
-
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err &&
-        typeof (err as any).response?.data?.erro === "string"
-      ) {
-        mensagem = (err as any).response.data.erro;
-      }
+      const mensagem = extrairMensagemErro(
+        err,
+        "Nao foi possivel adicionar este ponto ao roteiro."
+      );
 
       setErroPonto(mensagem);
     } finally {
@@ -99,86 +117,92 @@ function RoteiroDetalhes() {
     }
   }
 
+  async function aoRemoverPonto(idPonto: number) {
+    const confirmar = window.confirm("Deseja remover este ponto do roteiro?");
+
+    if (!confirmar) {
+      return;
+    }
+
+    try {
+      setRemovendoId(idPonto);
+
+      await api.delete(`/roteiros/${id}/itens/${idPonto}`);
+
+      await buscarRoteiro();
+    } catch (err) {
+      console.error(err);
+      alert("Nao foi possivel remover este ponto do roteiro.");
+    } finally {
+      setRemovendoId(null);
+    }
+  }
+
+  const itensOrdenados = roteiro
+    ? [...roteiro.itens].sort((a, b) => a.ordem - b.ordem)
+    : [];
+
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1rem" }}>
-      <Link to="/roteiros" style={{ color: "#2563eb", textDecoration: "none" }}>
+    <div className="roteiro-detalhes">
+      <Link to="/roteiros" className="roteiro-voltar">
         Voltar para meus roteiros
       </Link>
 
-      {carregando && <p>Carregando roteiro...</p>}
+      {carregando && <p className="roteiro-status">Carregando roteiro...</p>}
 
-      {erro && (
-        <div
-          style={{
-            border: "1px solid #f87171",
-            backgroundColor: "#fee2e2",
-            color: "#991b1b",
-            borderRadius: 8,
-            padding: "1rem",
-            marginTop: "1rem",
-          }}
-        >
-          {erro}
-        </div>
-      )}
+      {erro && <div className="roteiro-alerta">{erro}</div>}
 
       {!carregando && !erro && roteiro && (
-        <div style={{ marginTop: "1rem" }}>
-          <h1 style={{ marginBottom: 0 }}>{roteiro.nome}</h1>
-          <p style={{ color: "#666", marginTop: "0.25rem" }}>{roteiro.cidade}</p>
+        <div className="roteiro-conteudo">
+          <div className="roteiro-cabecalho">
+            <h1>{roteiro.nome}</h1>
+            <p className="roteiro-cidade">{roteiro.cidade}</p>
 
-          {roteiro.descricao && <p>{roteiro.descricao}</p>}
-
-          <h2 style={{ marginTop: "2rem" }}>Pontos do roteiro</h2>
-
-          {roteiro.itens.length === 0 && (
-            <p>Este roteiro ainda nao tem pontos cadastrados.</p>
-          )}
-
-          <div style={{ display: "grid", gap: "1rem", marginBottom: "2rem" }}>
-            {roteiro.itens
-              .sort((a, b) => a.ordem - b.ordem)
-              .map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: 8,
-                    padding: "1.5rem",
-                  }}
-                >
-                  <p style={{ margin: 0, color: "#666", fontSize: "0.85rem" }}>
-                    Parada {item.ordem}
-                  </p>
-                  <h3 style={{ margin: "0.25rem 0" }}>{item.ponto.nome}</h3>
-                  <p style={{ margin: 0, color: "#666" }}>{item.ponto.categoria}</p>
-
-                  {item.observacao && (
-                    <p style={{ margin: "0.5rem 0 0" }}>{item.observacao}</p>
-                  )}
-                </div>
-              ))}
+            {roteiro.descricao && (
+              <p className="roteiro-descricao">{roteiro.descricao}</p>
+            )}
           </div>
 
-          <h2>Adicionar ponto ao roteiro</h2>
+          <h2 className="roteiro-secao-titulo">Pontos do roteiro</h2>
 
-          <form
-            onSubmit={aoAdicionarPonto}
-            style={{
-              display: "grid",
-              gap: "1rem",
-              maxWidth: 480,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: "1.5rem",
-            }}
-          >
-            <label style={{ display: "grid", gap: "0.25rem" }}>
-              Ponto turistico *
+          {itensOrdenados.length === 0 && (
+            <p className="roteiro-vazio">
+              Este roteiro ainda nao tem pontos cadastrados.
+            </p>
+          )}
+
+          <div className="roteiro-lista">
+            {itensOrdenados.map((item) => (
+              <div key={item.id} className="roteiro-item">
+                <p className="roteiro-item-parada">Parada {item.ordem}</p>
+                <h3 className="roteiro-item-titulo">{item.ponto.nome}</h3>
+                <p className="roteiro-item-categoria">{item.ponto.categoria}</p>
+
+                {item.observacao && (
+                  <p className="roteiro-item-obs">{item.observacao}</p>
+                )}
+
+                <button
+                  type="button"
+                  className="roteiro-btn-remover"
+                  onClick={() => aoRemoverPonto(item.ponto.id)}
+                  disabled={removendoId === item.ponto.id}
+                >
+                  {removendoId === item.ponto.id ? "Removendo..." : "Remover"}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <h2 className="roteiro-secao-titulo">Adicionar ponto ao roteiro</h2>
+
+          <form onSubmit={aoAdicionarPonto} className="roteiro-form">
+            <label className="roteiro-campo">
+              <span>Ponto turistico *</span>
               <select
+                className="roteiro-select"
                 value={idPontoSelecionado}
                 onChange={(e) => setIdPontoSelecionado(e.target.value)}
-                style={{ padding: "0.5rem", borderRadius: 6, border: "1px solid #ccc" }}
               >
                 <option value="">Selecione um ponto</option>
                 {pontosDisponiveis.map((ponto) => (
@@ -189,54 +213,34 @@ function RoteiroDetalhes() {
               </select>
             </label>
 
-            <label style={{ display: "grid", gap: "0.25rem" }}>
-              Ordem
+            <label className="roteiro-campo">
+              <span>Ordem</span>
               <input
+                className="roteiro-input"
                 type="number"
                 min={0}
                 value={ordem}
                 onChange={(e) => setOrdem(e.target.value)}
-                style={{ padding: "0.5rem", borderRadius: 6, border: "1px solid #ccc" }}
               />
             </label>
 
-            <label style={{ display: "grid", gap: "0.25rem" }}>
-              Observacao
+            <label className="roteiro-campo">
+              <span>Observacao</span>
               <input
+                className="roteiro-input"
                 type="text"
                 maxLength={500}
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                style={{ padding: "0.5rem", borderRadius: 6, border: "1px solid #ccc" }}
               />
             </label>
 
-            {erroPonto && (
-              <div
-                style={{
-                  border: "1px solid #f87171",
-                  backgroundColor: "#fee2e2",
-                  color: "#991b1b",
-                  borderRadius: 8,
-                  padding: "1rem",
-                }}
-              >
-                {erroPonto}
-              </div>
-            )}
+            {erroPonto && <div className="roteiro-alerta">{erroPonto}</div>}
 
             <button
               type="submit"
+              className="roteiro-btn-primario"
               disabled={enviandoPonto}
-              style={{
-                padding: "0.75rem",
-                borderRadius: 6,
-                border: "none",
-                backgroundColor: "#2563eb",
-                color: "#fff",
-                fontWeight: "bold",
-                cursor: enviandoPonto ? "not-allowed" : "pointer",
-              }}
             >
               {enviandoPonto ? "Adicionando..." : "Adicionar ponto"}
             </button>
